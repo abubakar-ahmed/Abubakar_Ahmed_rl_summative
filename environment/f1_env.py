@@ -102,6 +102,7 @@ class Formula1PathEnv(gym.Env):
         self.current_step += 1
         
         # Calculate new position based on action
+        action = int(action)
         dy, dx = self.action_to_direction[action]
         new_y = self.state[0] + dy
         new_x = self.state[1] + dx
@@ -141,38 +142,32 @@ class Formula1PathEnv(gym.Env):
     def _calculate_reward(self, new_state):
         """
         Calculate reward for the given state transition.
-        
-        Reward structure designed to encourage:
-        - Reaching the goal quickly (+10)
-        - Staying on track (-0.1 per step vs -1 for off-track)
-        - Efficient racing lines
-        
-        Args:
-            new_state: The proposed new state
-            
-        Returns:
-            float: Reward value
         """
-        # Check if new position is the goal
-        if tuple(new_state) == (5, 5):
-            return 10.0  # Large reward for completing the lap
-            
-        # Penalty for going off the racing line
-        elif tuple(new_state) not in self.track_set:
-            return -1.0  # Significant penalty for off-track excursion
-            
-        else:
-            # Base penalty for each step on track (encourages speed)
-            reward = -0.1
-            
-            # Optional: Small bonus for making progress toward goal
-            current_distance = self._manhattan_distance_to_goal()
-            new_distance = abs(new_state[0] - 5) + abs(new_state[1] - 5)
-            
-            if new_distance < current_distance:
-                reward += 0.05  # Small bonus for getting closer to goal
-                
-            return reward
+
+        # Goal state
+        goal = (5, 5)
+
+        # If goal reached
+        if tuple(new_state) == goal:
+            return 10.0  # Large reward for success
+
+        # Base penalty for time (encourages speed)
+        reward = -0.1
+
+        # Strong penalty for going off track
+        if tuple(new_state) not in self.track_set:
+            reward = -2.0  # Harsher penalty for illegal move
+
+        # Reward shaping: bonus for making progress toward goal
+        current_distance = self._manhattan_distance_to_goal()
+        new_distance = abs(new_state[0] - goal[0]) + abs(new_state[1] - goal[1])
+
+        if new_distance < current_distance:
+            reward += 0.1  # Encourage moves toward goal
+        elif new_distance > current_distance:
+            reward -= 0.05  # Slight penalty for moving away
+
+        return reward
     
     def _manhattan_distance_to_goal(self):
         """Calculate Manhattan distance from current position to goal."""
@@ -198,7 +193,7 @@ class Formula1PathEnv(gym.Env):
 # Test function to verify environment works correctly
 def test_environment():
     """Test the environment with random actions."""
-    print("🏁 Testing Formula 1 Environment...")
+    print("Testing Formula 1 Environment...")
     
     env = Formula1PathEnv()
     
@@ -221,7 +216,7 @@ def test_environment():
             print(f"Episode ended! Total reward: {total_reward:.2f}")
             break
     
-    print("✅ Environment test completed successfully!")
+    print("Environment test completed successfully!")
 
 
 if __name__ == "__main__":

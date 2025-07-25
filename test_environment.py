@@ -1,3 +1,8 @@
+"""
+test_environment.py
+Quick test script to verify the F1 environment works correctly
+"""
+
 import sys
 import os
 import numpy as np
@@ -10,27 +15,27 @@ from environment.f1_env import Formula1PathEnv
 
 def test_basic_functionality():
     """Test basic environment functionality."""
-    print("🧪 Testing Formula 1 Environment Basic Functionality")
+    print("Testing Formula 1 Environment Basic Functionality")
     print("=" * 55)
     
     # Create environment
     env = Formula1PathEnv()
     
     # Test 1: Environment creation
-    print("✅ Test 1: Environment created successfully")
+    print("Test 1: Environment created successfully")
     
     # Test 2: Action and observation spaces
-    print(f"✅ Test 2: Action space: {env.action_space}")
-    print(f"✅ Test 2: Observation space: {env.observation_space}")
+    print(f"Test 2: Action space: {env.action_space}")
+    print(f"Test 2: Observation space: {env.observation_space}")
     
     # Test 3: Reset functionality
     state, info = env.reset()
-    print(f"✅ Test 3: Reset successful. Initial state: {state}")
+    print(f"Test 3: Reset successful. Initial state: {state}")
     assert tuple(state) == (0, 0), f"Expected (0,0), got {tuple(state)}"
     
     # Test 4: Track validation
     track = env.get_track_positions()
-    print(f"✅ Test 4: Track has {len(track)} positions")
+    print(f"Test 4: Track has {len(track)} positions")
     assert (0, 0) in track, "Start position not in track"
     assert (5, 5) in track, "Finish position not in track"
     
@@ -42,28 +47,28 @@ def test_basic_functionality():
         if not terminated:
             env.reset()  # Reset for next test
     
-    print(f"✅ Test 5: All {len(valid_actions)} actions work correctly")
+    print(f"Test 5: All {len(valid_actions)} actions work correctly")
     
     # Test 6: Reward system
     env.reset()
     
     # Test on-track movement
     state, reward, _, _, info = env.step(1)  # Move right to (0,1)
-    print(f"✅ Test 6a: On-track movement reward: {reward}")
-    assert reward == -0.05, f"Expected -0.05, got {reward}"  # Updated expectation
+    print(f"Test 6a: On-track movement reward: {reward}")
+    assert reward == -0.05, f"Expected -0.05, got {reward}"
     
     # Test off-track movement
     env.reset()
     state, reward, _, _, info = env.step(2)  # Try to move down from (0,0) - off track
-    print(f"✅ Test 6b: Off-track movement reward: {reward}")
-    assert reward == -1.0, f"Expected -1.0, got {reward}"
+    print(f"Test 6b: Off-track movement reward: {reward}")
+    assert reward == -0.95, f"Expected -0.95, got {reward}"
     
     # Test 7: Goal reaching
     env.reset()
     # Navigate to near the goal
     env.state = np.array([5, 4], dtype=np.int32)  # Set state to (4,5) in (x,y)
     state, reward, terminated, _, info = env.step(1)  # Move right to (5,5)
-    print(f"✅ Test 7: Goal reaching reward: {reward}, terminated: {terminated}")
+    print(f"Test 7: Goal reaching reward: {reward}, terminated: {terminated}")
     assert reward == 10.0, f"Expected 10.0, got {reward}"
     assert terminated, "Episode should terminate at goal"
     
@@ -72,18 +77,18 @@ def test_basic_functionality():
     for step in range(100):
         state, reward, terminated, truncated, info = env.step(0)  # Keep moving up (will hit boundary)
         if truncated:
-            print(f"✅ Test 8: Episode truncated at step {step + 1}")
+            print(f"Test 8: Episode truncated at step {step + 1}")
             break
     else:
-        print("❌ Test 8: Episode should have been truncated after 100 steps")
+        print("Test 8: Episode should have been truncated after 100 steps")
     
-    print("\n🎉 All basic functionality tests passed!")
+    print("\nAll basic functionality tests passed!")
     return True
 
 
 def test_track_integrity():
     """Test that the track forms a valid path."""
-    print("\n🛤️  Testing Track Integrity")
+    print("\nTesting Track Integrity")
     print("=" * 30)
     
     env = Formula1PathEnv()
@@ -99,22 +104,22 @@ def test_track_integrity():
         # Check if positions are adjacent (Manhattan distance = 1)
         distance = abs(pos[0] - prev_pos[0]) + abs(pos[1] - prev_pos[1])
         if distance != 1:
-            print(f"❌ Track disconnected between {prev_pos} and {pos}")
+            print(f"Track disconnected between {prev_pos} and {pos}")
             connected = False
     
     if connected:
-        print("✅ Track is properly connected")
+        print("Track is properly connected")
     
     # Test track bounds
     for pos in track:
         if pos[0] < 0 or pos[0] >= 6 or pos[1] < 0 or pos[1] >= 6:
-            print(f"❌ Track position {pos} is out of bounds")
+            print(f"Track position {pos} is out of bounds")
             return False
     
-    print("✅ All track positions are within bounds")
+    print("All track positions are within bounds")
     
     # Print track visualization
-    print("\n🗺️  Track Layout:")
+    print("\nTrack Layout:")
     grid = [['.' for _ in range(6)] for _ in range(6)]
     
     for i, (x, y) in enumerate(track):
@@ -135,7 +140,7 @@ def test_track_integrity():
 
 def run_quick_simulation():
     """Run a quick simulation to verify everything works together."""
-    print("\n🏃‍♂️ Running Quick Simulation")
+    print("\nRunning Quick Simulation")
     print("=" * 35)
     
     env = Formula1PathEnv()
@@ -159,13 +164,13 @@ def run_quick_simulation():
               f"R:{reward:+5.1f}")
         
         if terminated:
-            print(f"  🎉 Reached goal in {steps} steps!")
+            print(f"  Reached goal in {steps} steps!")
             break
         elif truncated:
-            print(f"  ⏱️  Episode truncated after {steps} steps")
+            print(f"  Episode truncated after {steps} steps")
             break
     
-    print(f"\n📊 Simulation Summary:")
+    print(f"\nSimulation Summary:")
     print(f"   Steps taken: {steps}")
     print(f"   Total reward: {total_reward:.2f}")
     print(f"   Final position: ({state[1]}, {state[0]})")
@@ -176,7 +181,7 @@ def run_quick_simulation():
 
 def main():
     """Run all tests."""
-    print("🔬 Formula 1 Environment Test Suite")
+    print("Formula 1 Environment Test Suite")
     print("=" * 40)
     
     try:
@@ -186,16 +191,11 @@ def main():
         run_quick_simulation()
         
         print("\n" + "=" * 40)
-        print("🎊 ALL TESTS PASSED! Environment is ready for training.")
+        print("ALL TESTS PASSED! Environment is ready for training.")
         print("=" * 40)
         
-        print("\nNext steps:")
-        print("1. Run 'python main.py' to see the visualization demo")
-        print("2. Proceed to implement the RL training scripts")
-        print("3. Train your DQN, REINFORCE, PPO, and A2C agents")
-        
     except Exception as e:
-        print(f"\n❌ Test failed with error: {e}")
+        print(f"\nTest failed with error: {e}")
         import traceback
         traceback.print_exc()
         return False

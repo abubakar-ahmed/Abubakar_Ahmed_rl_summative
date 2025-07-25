@@ -225,7 +225,7 @@ class RaceTrackRenderer:
                          (car_rect.left + 8, car_rect.bottom), wheel_radius)
         
         # Racing number
-        number_text = self.font_small.render("66", True, (255, 255, 255))
+        number_text = self.font_small.render("44", True, (255, 255, 255))
         number_rect = number_text.get_rect(center=(car_center_x, car_center_y))
         self.screen.blit(number_text, number_rect)
         

@@ -1,224 +1,120 @@
-import gymnasium as gym
-import imageio
-import numpy as np
 import pygame
+import numpy as np
+from stable_baselines3 import DQN
+from environment.f1_env import Formula1PathEnv
 import sys
 import os
-import time
 
 # Add project root to path for imports
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from environment.f1_env import Formula1PathEnv
-from environment.rendering import RaceTrackRenderer
+class F1Visualizer:
+    """Enhanced visualizer with real-time rendering"""
+    def __init__(self, env):
+        pygame.init()
+        self.env = env
+        self.cell_size = 100
+        self.width = env.grid_size * self.cell_size
+        self.height = env.grid_size * self.cell_size
+        self.screen = pygame.display.set_mode((self.width, self.height + 80))
+        pygame.display.set_caption("F1 RL Agent")
+        
+        # Colors
+        self.colors = {
+            'track': (50, 50, 50),
+            'off_track': (34, 139, 34),
+            'car': (255, 0, 0),
+            'hud': (0, 0, 0)
+        }
+        
+    def render(self, state, reward, steps, done):
+        """Render current state"""
+        self.screen.fill(self.colors['off_track'])
+        
+        # Draw track
+        for x in range(self.env.grid_size):
+            for y in range(self.env.grid_size):
+                rect = pygame.Rect(x * self.cell_size, y * self.cell_size,
+                                  self.cell_size, self.cell_size)
+                color = self.colors['track'] if (x,y) in self.env.track_set else self.colors['off_track']
+                pygame.draw.rect(self.screen, color, rect)
+        
+        # Draw car
+        car_x = state[1] * self.cell_size + self.cell_size//2
+        car_y = state[0] * self.cell_size + self.cell_size//2
+        pygame.draw.circle(self.screen, self.colors['car'], (car_x, car_y), 15)
+        
+        # Draw HUD
+        hud_rect = pygame.Rect(0, self.height, self.width, 80)
+        pygame.draw.rect(self.screen, self.colors['hud'], hud_rect)
+        font = pygame.font.SysFont('Arial', 20)
+        texts = [
+            f"Steps: {steps}",
+            f"Reward: {reward:.2f}",
+            f"Status: {'Racing' if not done else 'Finished'}"
+        ]
+        
+        for i, text in enumerate(texts):
+            text_surface = font.render(text, True, (255,255,255))
+            self.screen.blit(text_surface, (10, self.height + 10 + i*25))
+        
+        pygame.display.flip()
 
-
-def run_random_agent_demo(episodes=3, max_steps_per_episode=100, create_gif=True):
-    """
-    Run the F1 environment with a random agent for demonstration.
-    
-    Args:
-        episodes: Number of episodes to run
-        max_steps_per_episode: Maximum steps per episode
-        create_gif: Whether to create and save a GIF
-    """
-    print("Starting Formula 1 Path Optimization Demo")
-    print("=" * 50)
-    
-    # Initialize environment and renderer
+def train_f1_agent():
+    """Enhanced training with visualization"""
     env = Formula1PathEnv()
-    renderer = RaceTrackRenderer()
+    visualizer = F1Visualizer(env)
     
-    # Storage for GIF frames
-    all_frames = []
-    episode_stats = []
+    # Improved hyperparameters
+    model = DQN(
+        "MlpPolicy",
+        env,
+        learning_rate=0.0003,
+        buffer_size=100000,
+        batch_size=128,
+        gamma=0.99,
+        exploration_final_eps=0.02,
+        exploration_fraction=0.3,
+        target_update_interval=1000,
+        verbose=1
+    )
     
-    try:
-        for episode in range(episodes):
-            print(f"Episode {episode + 1}/{episodes}")
-            print("-" * 30)
-            
-            # Reset environment
-            state, info = env.reset()
-            total_reward = 0
-            episode_frames = []
-            
-            # Episode loop
-            for step in range(max_steps_per_episode):
-                # Take random action
-                action = env.action_space.sample()
-                
-                # Execute action
-                next_state, reward, terminated, truncated, step_info = env.step(action)
-                total_reward += reward
-                
-                # Create info dictionary for renderer
-                render_info = {
-                    'on_track': step_info.get('on_track', True),
-                    'distance_to_goal': step_info.get('distance_to_goal', 0),
-                    'steps_taken': step + 1,
-                    'success_rate': step_info.get('success_rate', 0)
-                }
-                
-                # Render frame
-                frame = renderer.render(state, step + 1, reward, total_reward, render_info)
-                
-                if create_gif:
-                    episode_frames.append(frame.copy())
-                
-                # Print step information
-                action_names = ['UP', 'RIGHT', 'DOWN', 'LEFT']
-                print(f"  Step {step+1:2d}: {action_names[action]:>5} → "
-                      f"({state[1]},{state[0]}) | "
-                      f"Reward: {reward:+5.1f} | "
-                      f"Total: {total_reward:+6.1f} | "
-                      f"{'ON TRACK' if render_info['on_track'] else '❌ OFF TRACK'}")
-                
-                # Update state
-                state = next_state
-                
-                # Check if episode ended
-                if terminated:
-                    print(f"SUCCESS! Reached finish line in {step + 1} steps!")
-                    # Add a few extra frames to show the victory
-                    for _ in range(5):
-                        frame = renderer.render(state, step + 1, reward, total_reward, render_info)
-                        if create_gif:
-                            episode_frames.append(frame.copy())
-                    break
-                elif truncated:
-                    print(f"Episode timeout after {step + 1} steps")
-                    break
-                
-                # Small delay for human viewing
-                time.sleep(0.1)
-            
-            # Episode summary
-            episode_stats.append({
-                'episode': episode + 1,
-                'steps': step + 1,
-                'total_reward': total_reward,
-                'success': terminated,
-                'final_position': tuple(state)
-            })
-            
-            print(f"Episode Summary: {step + 1} steps, "
-                  f"{total_reward:.1f} total reward, "
-                  f"{'SUCCESS' if terminated else 'TIMEOUT'}")
-            
-            # Add episode frames to overall collection
-            if create_gif:
-                all_frames.extend(episode_frames)
-                # Add separator frames between episodes
-                if episode < episodes - 1:
-                    separator_frame = create_episode_separator_frame(episode + 1, episodes)
-                    for _ in range(10):  # Show separator for 1 second at 10fps
-                        all_frames.append(separator_frame)
-        
-        # Print overall statistics
-        print("\n" + "=" * 50)
-        print("SIMULATION STATISTICS")
-        print("=" * 50)
-        
-        successful_episodes = sum(1 for stat in episode_stats if stat['success'])
-        total_steps = sum(stat['steps'] for stat in episode_stats)
-        avg_reward = sum(stat['total_reward'] for stat in episode_stats) / episodes
-        
-        print(f"Episodes completed: {episodes}")
-        print(f"Successful episodes: {successful_episodes}/{episodes} ({successful_episodes/episodes*100:.1f}%)")
-        print(f"Average steps per episode: {total_steps/episodes:.1f}")
-        print(f"Average total reward: {avg_reward:.2f}")
-        
-        print("\nDetailed Results:")
-        for stat in episode_stats:
-            status = "SUCCESS" if stat['success'] else "TIMEOUT"
-            print(f"  Episode {stat['episode']}: {stat['steps']:2d} steps, "
-                  f"{stat['total_reward']:+6.1f} reward, "
-                  f"ended at {stat['final_position']} - {status}")
-        
-        # Create and save GIF
-        if create_gif and all_frames:
-            print(f"Creating GIF with {len(all_frames)} frames...")
-            
-            # Convert frames to the format imageio expects
-            gif_frames = []
-            for frame in all_frames:
-                # Ensure frame is in the correct format (height, width, channels)
-                if frame.shape[2] == 3:  # RGB
-                    gif_frames.append(frame)
-                else:
-                    print(f"Warning: Unexpected frame shape: {frame.shape}")
-            
-            if gif_frames:
-                try:
-                    imageio.mimsave('random_agent_demo.gif', gif_frames, fps=10, loop=0)
-                    print(f"GIF saved as 'random_agent_demo.gif' ({len(gif_frames)} frames)")
-                except Exception as e:
-                    print(f"Error saving GIF: {e}")
-            else:
-                print("No valid frames to save")
-        
-    except KeyboardInterrupt:
-        print("Demo interrupted by user")
+    # Train for longer
+    model.learn(total_timesteps=200000)
+    model.save("f1_racing_agent")
     
-    except Exception as e:
-        print(f"Error during demo: {e}")
-        import traceback
-        traceback.print_exc()
-    
-    finally:
-        # Clean up
-        renderer.close()
-        env.close()
-        pygame.quit()
-        print("Demo completed. Thank you for watching!")
+    return model
 
-
-def create_episode_separator_frame(completed_episodes, total_episodes):
-    """Create a frame showing episode transition."""
-    # This is a simple black frame with text - you could make it more elaborate
-    frame = np.zeros((680, 600, 3), dtype=np.uint8)  # Match renderer dimensions
+def test_agent(model_path="f1_racing_agent"):
+    """Interactive testing with visualization"""
+    env = Formula1PathEnv()
+    visualizer = F1Visualizer(env)
+    model = DQN.load(model_path)
     
-    # Add text using pygame (simplified version)
-    pygame.init()
-    font = pygame.font.SysFont('arial', 36, bold=True)
-    
-    # Create a temporary surface for text
-    temp_surface = pygame.Surface((600, 680))
-    temp_surface.fill((0, 0, 0))
-    
-    text = f"Episode {completed_episodes} Complete"
-    text_surface = font.render(text, True, (255, 255, 255))
-    text_rect = text_surface.get_rect(center=(300, 340))
-    temp_surface.blit(text_surface, text_rect)
-    
-    # Convert to numpy array
-    surface_array = pygame.surfarray.array3d(temp_surface)
-    frame = np.transpose(surface_array, (1, 0, 2))
-    
-    return frame
-
-
-def main():
-    """Main function to run the demo."""
-    print("Formula 1 Path Optimization RL Simulator")
-    print("Objective: Navigate from (0,0) to (5,5) on the racing track")
-    print("Agent: Random action selection")
-    print("Output: Live visualization + GIF recording")
-    
-    # Check if user wants to skip GIF creation (for faster testing)
-    create_gif = True
-    if len(sys.argv) > 1 and sys.argv[1] == '--no-gif':
-        create_gif = False
-        print("GIF creation disabled")
-    
-    # Run the demo
-    try:
-        run_random_agent_demo(episodes=3, max_steps_per_episode=100, create_gif=create_gif)
-    except Exception as e:
-        print(f"Fatal error: {e}")
-        sys.exit(1)
-
+    for episode in range(5):
+        obs, _ = env.reset()
+        done = False
+        total_reward = 0
+        steps = 0
+        
+        while not done and steps < 500:
+            action, _ = model.predict(obs, deterministic=True)
+            obs, reward, done, _, _ = env.step(int(action))
+            
+            total_reward += reward
+            steps += 1
+            
+            visualizer.render(obs, total_reward, steps, done)
+            pygame.time.delay(100)  # Control speed
+            
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    return
+        
+        print(f"Episode {episode+1}: Reward={total_reward:.1f}, Steps={steps}")
 
 if __name__ == "__main__":
-    main()
+    # Train and test
+    trained_model = train_f1_agent()
+    test_agent()
